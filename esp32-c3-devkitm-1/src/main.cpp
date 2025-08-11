@@ -1,34 +1,35 @@
 #include <Arduino.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_ST7735.h>
 #include <SPI.h>
 
-// ======== 使用軟體 SPI 模式，腳位與你提供的一致 ========
-#define TFT_CS    5  // 你的 CS
-#define TFT_DC    4  // 你的 DC
-#define TFT_SDA   7  // 你的 SDA (MOSI)
-#define TFT_SCL   6  // 你的 SCK
-#define TFT_RST   3  // 你的 RES
-// =======================================================
-
-Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_SDA, TFT_SCL, TFT_RST);
+#define TEST_MOSI 7
+#define TEST_SCLK 6
+#define TEST_CS   5
 
 void setup() {
   Serial.begin(115200);
-  Serial.println("Adafruit ST7735 Software SPI Test!");
+  delay(1000);
+  Serial.println("=== SPI Pin Test Start ===");
 
-  tft.initR(INITR_BLACKTAB);
-  Serial.println("Initialization done.");
+  // 初始化 SPI
+  SPI.begin(TEST_SCLK, -1, TEST_MOSI, TEST_CS);
+  pinMode(TEST_CS, OUTPUT);
+  digitalWrite(TEST_CS, HIGH);
 
-  tft.fillScreen(ST77XX_BLACK);
-  tft.setCursor(10, 10);
-  tft.setTextColor(ST77XX_WHITE);
-  tft.setTextSize(2);
-  tft.println("Hello, C3!");
+  // 發送測試資料
+  Serial.println("Sending SPI test pulses...");
+  SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE0));
+  digitalWrite(TEST_CS, LOW);
+  for (int i = 0; i < 100; i++) {
+    SPI.transfer(0xAA);  // 10101010
+    delay(10);
+  }
+  digitalWrite(TEST_CS, HIGH);
+  SPI.endTransaction();
 
-  Serial.println("Text should be on screen.");
+  Serial.println("Test complete. Check MOSI/SCLK lines.");
 }
 
 void loop() {
-  // 這裡不需要做任何事
+  Serial.println("Running...");
+  delay(1000);
 }
