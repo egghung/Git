@@ -1,26 +1,38 @@
-#include <Arduino.h>
+#include <lvgl.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_ST7735.h>
-#include <lvgl.h>
+#include <WiFi.h>
+#include <time.h>
 
-// --- TFT 硬體腳位 ---
-#define TFT_CS   5
-#define TFT_RST  3   // 沒接就 -1
-#define TFT_DC   4
-#define TFT_SCLK 6
-#define TFT_MOSI 7
+// 螢幕腳位
+#define TFT_CS     5
+#define TFT_RST    3
+#define TFT_DC     4
+#define TFT_SCLK   6
+#define TFT_MOSI   7
 
-Adafruit_ST7735 tft(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RST);
+Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RST);
 
-// ----------- LVGL 繪製回呼（v8.x API）-------------
-void my_disp_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p) {
+#define TFT_WIDTH  128
+#define TFT_HEIGHT 160
+
+// WiFi 設定
+const char* ssid     = "Aquaticpeng";
+const char* password = "11191119";
+
+// LVGL
+static lv_disp_draw_buf_t draw_buf;
+static lv_color_t buf[TFT_WIDTH * 20];
+
+lv_obj_t* label_time;  // 時鐘 Label 指標
+
+void my_disp_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p)
+{
   tft.startWrite();
-  for (int y = area->y1; y <= area->y2; y++) {
-    tft.setAddrWindow(area->x1, y, area->x2 - area->x1 + 1, 1);
-    for (int x = area->x1; x <= area->x2; x++) {
-      // 注意：Adafruit_ST7735 用 RGB565，LVGL 是 lv_color_t
-      uint16_t c = color_p->full;  // v8.x 寫法
-      tft.pushColor(c);
+  tft.setAddrWindow(area->x1, area->y1, (area->x2-area->x1+1), (area->y2-area->y1+1));
+  for(int y = area->y1; y <= area->y2; y++) {
+    for(int x = area->x1; x <= area->x2; x++) {
+      tft.pushColor(color_p->full);
       color_p++;
     }
   }
@@ -28,39 +40,63 @@ void my_disp_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color
   lv_disp_flush_ready(disp);
 }
 
-// ------------ 初始化 --------------
-void setup() {
+void setup()
+{
   Serial.begin(115200);
   delay(200);
 
-  tft.initR(INITR_BLACKTAB);
+  // 初始化螢幕
+  tft.initR(INITR_BLACKTAB);   // 可依你的面板換 GREENTAB/REDTAB
   tft.setRotation(0);
   tft.fillScreen(ST77XX_BLACK);
 
-  // LVGL
+  // LVGL 初始化
   lv_init();
-
-  static lv_disp_draw_buf_t draw_buf;
-  static lv_color_t buf[128 * 20]; // 緩衝區：橫 128，20 行，依面板調整
-  lv_disp_draw_buf_init(&draw_buf, buf, NULL, 128 * 20);
+  lv_disp_draw_buf_init(&draw_buf, buf, NULL, TFT_WIDTH * 20);
 
   static lv_disp_drv_t disp_drv;
   lv_disp_drv_init(&disp_drv);
-  disp_drv.hor_res = 128;   // 螢幕寬度
-  disp_drv.ver_res = 160;   // 螢幕高度
+  disp_drv.hor_res = TFT_WIDTH;
+  disp_drv.ver_res = TFT_HEIGHT;
   disp_drv.flush_cb = my_disp_flush;
   disp_drv.draw_buf = &draw_buf;
   lv_disp_drv_register(&disp_drv);
 
-  // -------- LVGL 畫面測試 ----------
-  lv_obj_t *label = lv_label_create(lv_scr_act());
-  lv_label_set_text(label, "LVGL Hello!\n你好！");
-  lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
+  // --- LVGL 測試元件 ---
+  label_time = lv_label_create(lv_scr_act());
+  lv_obj_align(label_time, LV_ALIGN_CENTER, 0, 0);
+  lv_label_set_text(label_time, "Connecting to WiFi...");
 
-  Serial.println("LVGL init done");
+  // WiFi 連線
+  WiFi.begin(ssid, password);
+  Serial.print("Connecting to WiFi");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+    lv_label_set_text(label_time, "Link WiFi...");
+    lv_timer_handler();  // 保證畫面會更新
+  }
+  Serial.println(" Connected!");
+  lv_label_set_text(label_time, "Connected!");
+
+  // NTP 設定
+  configTime(8 * 3600, 0, "pool.ntp.org", "time.nist.gov"); // UTC+8
 }
 
-void loop() {
+void update_time_label() {
+  struct tm timeinfo;
+  if (getLocalTime(&timeinfo)) {
+    static char timeStr[16];
+    sprintf(timeStr, "%02d:%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+    lv_label_set_text(label_time, timeStr);
+  } else {
+    lv_label_set_text(label_time, "NTP同步中");
+  }
+}
+
+void loop()
+{
   lv_timer_handler();
-  delay(5);
+  update_time_label();
+  delay(1000);
 }
