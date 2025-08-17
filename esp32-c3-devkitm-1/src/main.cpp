@@ -3,7 +3,7 @@
 #include <Adafruit_ST7735.h>
 #include <WiFi.h>
 #include <time.h>
-
+// 名稱要跟 .c 檔裡的變數對應
 // 螢幕腳位
 #define TFT_CS     5
 #define TFT_RST    3
@@ -11,8 +11,11 @@
 #define TFT_SCLK   6
 #define TFT_MOSI   7
 
-Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RST);
+// 宣告 OraraGaze 圖片
+LV_IMG_DECLARE(OraraGaze);
 
+ Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RST);
+ 
 #define TFT_WIDTH  128
 #define TFT_HEIGHT 160
 
@@ -64,8 +67,17 @@ void setup()
 
   // --- LVGL 測試元件 ---
   label_time = lv_label_create(lv_scr_act());
-  lv_obj_align(label_time, LV_ALIGN_CENTER, 0, 0);
+  lv_obj_align(label_time, LV_ALIGN_BOTTOM_MID, 0, -2);
   lv_label_set_text(label_time, "Connecting to WiFi...");
+
+  // 建立圖片物件並顯示
+  lv_obj_t* img_orara = lv_img_create(lv_scr_act());
+  lv_img_set_src(img_orara, &OraraGaze);
+  lv_obj_align(img_orara, LV_ALIGN_TOP_MID, 0, 0); // 依需求改位置
+ 
+  lv_obj_set_style_text_font(label_time, &lv_font_montserrat_28, 0);  //字體大小
+  lv_obj_set_style_text_color(label_time, lv_color_hex(0x800020), 0); //酒紅色字體
+
 
   // WiFi 連線
   WiFi.begin(ssid, password);
@@ -73,11 +85,11 @@ void setup()
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
-    lv_label_set_text(label_time, "Link WiFi...");
+    lv_label_set_text(label_time, "Link ...");
     lv_timer_handler();  // 保證畫面會更新
   }
   Serial.println(" Connected!");
-  lv_label_set_text(label_time, "Connected!");
+  lv_label_set_text(label_time, "OK!");
 
   // NTP 設定
   configTime(8 * 3600, 0, "pool.ntp.org", "time.nist.gov"); // UTC+8

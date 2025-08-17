@@ -21,3 +21,5 @@
 #define LV_USE_LABEL 1
 
 #endif /* LV_CONF_H */
+
+#define LV_FONT_MONTSERRAT_28 1 //字體大小
